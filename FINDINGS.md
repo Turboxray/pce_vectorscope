@@ -212,10 +212,37 @@ Luma DAC:
   lower resistor rows, consistent with sync being inserted in the Y DAC as
   both patents describe.
 
+Matrix ROM array:
+
+- The die has two memory arrays. The smaller one, left of centre, has 15
+  output cells along one edge and address decoders on two sides. Its cell
+  pitch is 18.5 x 10.4 px in the photograph over 1216 x 1375 px: about 66
+  columns by 132 rows, of which about 12 rows are straps. 64 x 120 = 7680
+  cells = 512 x 15 bits. It is identified as the matrix ROM on that basis.
+- The larger array occupies about 7 times the area for 0.6 times the bits
+  (512 x 9), consistent with static RAM cells: the colour table RAM.
+- No programming structures are visible at the ROM block: no write drivers,
+  high-voltage devices, charge pump, fuse windows or extra pads. The data path
+  is read-only at block level.
+- The only probe pads on the die that are not bond pads belong to a
+  self-contained, guard-ringed test structure (14 pads, four test devices, a
+  tapped resistor). Its wiring does not leave the ring. It is a process
+  monitor.
+- The photograph does not resolve individual ROM bits, so the programming
+  layer (diffusion, contact or implant mask) was not determined and the
+  contents could not be read from the die.
+- Inferred: the table is a mask ROM, identical on every chip. Supporting
+  evidence other than the die: the contents are three closed-form integer
+  rules (section 5); P1 FIG. 7, filed in 1988, prints the same values including
+  the two zero codes; about ten consoles show the same lattice.
+
 Other observations:
 
 - Metal trim: segments in the lower resistor rows are shorted by metal, about
-  7 of 20 on the chroma DACs and 8 of 28 on the luma DAC.
+  7 of 20 on the chroma DACs and 8 of 28 on the luma DAC. These are mask
+  options, the same on every chip, not per-unit adjustments. No laser-cut
+  links were seen in the DAC area; the rest of the die was not searched for
+  them.
 - Between the resistor strings and the pads there are only switch columns,
   metal routing and pad protection cells. There is no inductor, capacitor
   plate or amplifier. The chip has no reconstruction or notch filter on these
@@ -566,6 +593,7 @@ Observations on real hardware (author):
 |---|---|
 | Carrier shape: square or +,+,0,-,-,0 | Spectrum of an R-Y or B-Y pin: component at 10.74 MHz present or absent. Alternatively gate-level tracing of DIE. |
 | Existence of a grey detector | Gate-level tracing of DIE |
+| Matrix ROM programming layer; confirmation that all chips hold the same table | A higher-magnification or delayered image of the ROM array; or ROM dumps from two chips compared |
 | Wiring of the DAC bias resistor rows; reference voltages | Tracing of DIE; DC readings on the Y, R-Y, B-Y and BRT reference pins |
 | Cause of the -8.5 deg rotation | Probe loading test at the common node and at the transistor base (section 8) |
 | Quadrature error | A capture with less geometric error than a photograph |
