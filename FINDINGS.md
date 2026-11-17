@@ -27,7 +27,7 @@ Each finding carries one of these status labels:
 | P3 | US 4,727,361, Toshiba, priority 1986, granted 1988 | Digital NTSC encoder cited by P1 as prior art. Not the VCE. |
 | P4 | US 4,924,744, Hudson Soft, priority 1987, granted 1990 | PSG sound generator |
 | P5 | US 5,319,786, Hudson Soft, priority 1987, granted 1994 | VDC (HuC6270) |
-| ROM | Dump of the HuC6260 matrix ROM, 512 entries of Y, R-Y, B-Y | Primary data |
+| ROM | Dump of the HuC6260 matrix ROM, 512 entries of Y, R-Y, B-Y. Dumps from multiple chips, from the first 1987 system to the last 1994 system, are identical (author). | Primary data |
 | DIE | Die photograph of a HuC6260 (marking reads HuC6260), siliconpr0n.org/map/hudson/huc6260/ | DAC and pad structure |
 | SCH | TurboGrafx-16 service manual, HuC6260 circuit sheet | External mixing network |
 | MAN | Hudson HuC6260 manual, scan ending at page H6-5 | Dot clock settings. The page covering the Y, R-Y, B-Y and BURST outputs is missing from the scan. |
@@ -47,6 +47,7 @@ document are from the one console in captures VS and WFM.
 | R-Y code | 2(R - G), -14 to +14 | Verified, 512/512 | 5 |
 | B-Y code | 2B - R - G, -14 to +14 | Verified, 512/512 | 5 |
 | Distinct chroma points | 169 | Verified; 169 dots on VS | 5, 10 |
+| ROM contents across production | Identical, 1987 to 1994 systems | Verified by dump comparison (author) | 5 |
 | Chroma DAC levels | 31; codes 0F and 10 share one node | Observed (DIE), consistent with VS | 6 |
 | On-chip chroma filter | None | Observed (DIE) | 6 |
 | Mixing resistors | Y 4.7k, R-Y 6.2k, B-Y 8.2k | Observed (SCH) | 8 |
@@ -163,6 +164,9 @@ R, G and B are the 3-bit palette values (0 to 7).
 - Chroma depends only on R - G and B - G. The 512 colours occupy 169 distinct
   (B-Y, R-Y) pairs, a hexagonal lattice 15 rows high.
 - P1 FIG. 7 matches the dump. The chroma equations of P2 do not.
+- ROM dumps from multiple chips, from the first 1987 system to the last 1994
+  system, were compared by the author. All are identical. The table did not
+  change during production and is not set per unit.
 
 Coefficients compared with NTSC on the same scale:
 
@@ -231,10 +235,11 @@ Matrix ROM array:
 - The photograph does not resolve individual ROM bits, so the programming
   layer (diffusion, contact or implant mask) was not determined and the
   contents could not be read from the die.
-- Inferred: the table is a mask ROM, identical on every chip. Supporting
-  evidence other than the die: the contents are three closed-form integer
-  rules (section 5); P1 FIG. 7, filed in 1988, prints the same values including
-  the two zero codes; about ten consoles show the same lattice.
+- The table is identical on every chip dumped, 1987 to 1994 (section 5). With
+  no programming structures on the die, it is a mask ROM. Also consistent: the
+  contents are three closed-form integer rules; P1 FIG. 7, filed in 1988,
+  prints the same values including the two zero codes; about ten consoles show
+  the same lattice.
 
 Other observations:
 
@@ -593,7 +598,7 @@ Observations on real hardware (author):
 |---|---|
 | Carrier shape: square or +,+,0,-,-,0 | Spectrum of an R-Y or B-Y pin: component at 10.74 MHz present or absent. Alternatively gate-level tracing of DIE. |
 | Existence of a grey detector | Gate-level tracing of DIE |
-| Matrix ROM programming layer; confirmation that all chips hold the same table | A higher-magnification or delayered image of the ROM array; or ROM dumps from two chips compared |
+| Matrix ROM programming layer (diffusion, contact or implant) | A higher-magnification or delayered image of the ROM array. Does not affect the model. |
 | Wiring of the DAC bias resistor rows; reference voltages | Tracing of DIE; DC readings on the Y, R-Y, B-Y and BRT reference pins |
 | Cause of the -8.5 deg rotation | Probe loading test at the common node and at the transistor base (section 8) |
 | Quadrature error | A capture with less geometric error than a photograph |
