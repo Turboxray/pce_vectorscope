@@ -15,8 +15,9 @@ Where each number comes from
   ROTATION_DEG ......... vectorscope photo, pattern vs burst (+-1.5 deg)
   LUMA_SPAN_IRE ........ waveform-monitor photo (IMG_2232.jpg) with sync set
                          to -40 IRE: white bar at 89 IRE, black at 0 (no
-                         setup). The six colour bars sit within 1.7 IRE of
-                         Y code / 31 * 89, so luma is linear in the code.
+                         7.5 IRE pedestal). The six colour bars sit within
+                         1.7 IRE of Y code / 31 * 89, so luma is linear in
+                         the code.
   SATURATION ........... taste only. 1.0 = as measured.
 
 Chroma is scaled to burst and luma to sync, i.e. a set with both AGC and

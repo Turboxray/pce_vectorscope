@@ -53,16 +53,15 @@ std::string g_status;
 
 // The graticule is the overlay image from the older Python tool, a tracing of an NTSC vectorscope graticule.
 // Measured on the image: the six box centres sit at the standard colour-bar angles within 0.2 degrees, at 418.5
-// pixels per unit of U/V (0.2% spread), and the outer circle has a radius of 316.8 pixels. The boxes of an NTSC
-// graticule are for 75% bars with 7.5% setup, which a generator makes by scaling the whole picture to 92.5 IRE;
-// burst stays at 40 IRE p-p. So one unit is 0.75 * 92.5 IRE and the circle is at 52.5 IRE. The dots in the
-// photo of the real scope (IMG_2902.jpg), measured against its boxes, give 2.15 IRE per B-Y count on this scale;
-// measured against its burst they give 2.14.
-const double GRAT_CX = 319.73, GRAT_CY = 319.52;       // centre of the image, in pixels from its top left corner
-const double GRAT_PX_PER_IRE = 418.5 / (0.75 * 92.5);  // image pixels per IRE
-const double GRAT_VIEW_IRE = 53.5;                     // centre to the edge of the view at zoom 1: the whole image
-// RGB data (a palette, a picture) is plotted as that picture encoded to NTSC with setup, so 75% RGB bars land
-// in the boxes. That is what a vectorscope fed from an RGB source shows.
+// pixels per unit of U/V (0.2% spread), and the outer circle has a radius of 316.8 pixels. On the instrument the
+// red box is at 43.9 IRE with burst at 40 IRE p-p (its own burst marks agree), so one unit of U/V is 69.375 IRE
+// and the circle is at 52.5 IRE. The dots in the photo of the real scope (IMG_2902.jpg), measured against its
+// boxes, give 2.15 IRE per B-Y count on this scale; measured against its burst they give 2.14.
+const double GRAT_CX = 319.73, GRAT_CY = 319.52;  // centre of the image, in pixels from its top left corner
+const double GRAT_PX_PER_IRE = 418.5 / 69.375;    // image pixels per IRE
+const double GRAT_VIEW_IRE = 53.5;                // centre to the edge of the view at zoom 1: the whole image
+// RGB data (a palette, a picture) is plotted at this many IRE per unit of U/V: the scale at which 75% RGB bars
+// land in the boxes (0.75 * 92.5 = 69.375). That is what a vectorscope fed from an RGB source shows.
 const double RGB_UNIT_IRE = 92.5;
 platform::Texture g_graticule;
 
@@ -523,7 +522,7 @@ void ui_model() {
     ImGui::SeparatorText("Console output");
     slide("White (IRE)", &g_params.white_ire, 60, 110, "%.1f",
           "Luma code 31 with sync at 40 IRE.\nMeasured 89 on the waveform monitor.");
-    slide("Black (IRE)", &g_params.black_ire, -5, 15, "%.1f", "Luma code 0. Measured at blanking level: no setup.");
+    slide("Black (IRE)", &g_params.black_ire, -5, 15, "%.1f", "Luma code 0. Measured at blanking level: the console has no 7.5 IRE pedestal.");
     slide("Chroma per count", &g_params.chroma_ire, 1.5, 3.0, "%.3f IRE",
           "Amplitude of one B-Y step, as a vectorscope set to burst = 40 IRE p-p reads it.\nThe scope photo gives 2.14 measured against its burst and 2.15 against its graticule boxes.");
     slide("R-Y / B-Y gain", &g_params.ry_gain, 1.0, 1.7, "%.4f",
@@ -632,7 +631,7 @@ void ui_scope() {
     ImGui::SetNextItemWidth(S(80));
     ImGui::SliderFloat("Graticule", &g_view.graticule, 0.0f, 1.0f, "%.2f");
     ImGui::SetItemTooltip("Brightness of the graticule (vector_scope_overlay__v4.png). 0 hides it.\n"
-                          "Its boxes are 75%% bars with 7.5%% setup: red at 43.9 IRE with burst at 40 IRE p-p. The circle is at 52.5 IRE.");
+                          "Its boxes are the 75%% bar targets: red at 43.9 IRE with burst at 40 IRE p-p. The circle is at 52.5 IRE.");
 
     ImGui::SetNextItemWidth(S(150));
     ImGui::SliderFloat("Zoom", &g_view.zoom, 0.5f, 8.0f, "%.2fx", ImGuiSliderFlags_Logarithmic);
