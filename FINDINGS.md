@@ -16,7 +16,6 @@ Each finding carries one of these status labels:
 | Observed | Read from the die photograph or schematic; not traced at gate level. |
 | Patent | Stated in a patent; not confirmed on hardware unless noted. |
 | Inferred | Follows from other findings; not directly tested. |
-| Predicted | Output of a simulation; not measured. |
 
 ## 2. Sources
 
@@ -59,7 +58,7 @@ document are from the one console in captures VS and WFM.
 | Rotation of chroma against burst | -8.5 deg (-8.3 to -8.7; earlier estimate +/-1.5) | Measured | 10 |
 | Quadrature error | 0 adopted; +0.4 to +1.2 deg read from VS, not trusted | Measured | 10 |
 | Saturation of full-level primaries | 75% to 81% of full saturation at 89 IRE white | Measured, model | 9, 13 |
-| Carrier shape (square or three-level) | Not determined | Open | 7, 16 |
+| Carrier shape (square or three-level) | Not determined | Open | 7, 15 |
 
 ## 4. Patents
 
@@ -527,72 +526,7 @@ The model was fitted to three palette files from the earlier Python tool:
   blue-axis chroma is within about 1% of the model, its red axis about 8%
   weaker, and its axes are about 96 deg apart against 90 to 91 deg measured.
 
-## 15. Predicted composite artifacts
-
-Status: Predicted. Scripts: `research/artifact_sim.py`,
-`research/composite_preview.py`. None of the figures in this section was
-measured.
-
-Because chroma is modulated at pixel rate without band limiting (section 7.2),
-chroma differences between adjacent pixels leak into the luma band.
-
-Test pair: magenta (7,0,7) and dark green (0,5,0), both luma code 13 (37 IRE).
-
-| Pattern | Predicted result |
-|---|---|
-| 5.37 MHz, 1-pixel alternation | Luma ripple about 49 IRE p-p at 0.9 MHz (6-pixel period) |
-| Same, checkerboard | Stationary vertical bars 6 pixels apart |
-| Same, vertical stripes | Bars invert on each line (coarse checker) |
-| 5.37 MHz, single coloured pixel | Luma error +20, -23 or +14 IRE by column mod 3, reversed on the next line |
-| 7.16 MHz, alternating pixels | Alternate lines about 15 IRE apart |
-| 10.74 MHz, alternating pixels | About 26 IRE at 1.79 MHz (6-pixel period) |
-
-- The magnitude is proportional to the chroma difference between the pixels.
-- Square and three-level carriers give nearly the same figures.
-- At 7.16 MHz only B-Y differences leak if pixel edges align with the B-Y
-  carrier as P2 FIG. 2(c) draws it; R-Y if aligned the other way. The real
-  alignment is not known.
-- With 262 lines the patterns are static. With 263 lines they invert each
-  frame and average out.
-
-Rendered previews (`research/preview/`):
-
-![5.37 MHz preview panels](research/preview/dot5.37MHz_all_panels.png)
-
-| Panel | Content |
-|---|---|
-| 1 | Palette only |
-| 2 | VCE model, notch-filter television, one frame (262-line case) |
-| 3 | Same, two frames averaged (263-line case) |
-| 4 | VCE model, two-line comb filter |
-| 5 | Band-limited encoder, notch-filter television |
-| 6 | As 2, without picture-tube blur |
-
-Television model: ideal burst lock; chroma bandwidth about 0.5 to 0.6 MHz;
-luma through a causal LC trap (Q = 2) and a third-order Bessel low-pass at 3.0
-MHz; picture-tube spot blur of 75 ns sigma applied in linear light (gamma
-2.2). The spot size is an estimate, not a measurement.
-
-Edge residue at a green-to-magenta edge, 5.37 MHz, single frame:
-
-| Television model | Residue |
-|---|---|
-| Idealised zero-phase trap, no tube | 26 IRE for 3 pixels either side |
-| Causal LC trap, no tube | 35 IRE, after the edge only |
-| Causal LC trap with tube blur | 17 IRE over about 2 pixels |
-| Same, two frames averaged (263 lines) | cancels |
-
-Observations on real hardware (author):
-
-- The 5.37 MHz previews were judged close to the real picture.
-- Subcarrier-rate ringing at colour edges is not seen on the real system at
-  5.37 MHz. Display type and line mode were not recorded.
-- The single-frame prediction of a 1 to 2 pixel dotted fringe at saturated
-  edges is therefore unconfirmed. If edges are clean on a static 262-line
-  picture on a notch-filter set, the unfiltered-chroma assumption is too
-  severe.
-
-## 16. Open items
+## 15. Open items
 
 | Item | What would settle it |
 |---|---|
@@ -603,11 +537,10 @@ Observations on real hardware (author):
 | Cause of the -8.5 deg rotation | Probe loading test at the common node and at the transistor base (section 8) |
 | Quadrature error | A capture with less geometric error than a photograph |
 | Alignment of pixel edges to the carrier | Oscilloscope capture of a pixel edge against burst |
-| Edge ringing discrepancy (section 15) | Record display type and 262/263 mode; waveform capture of the magenta/dark-green 1-pixel checkerboard with the low-pass filter in |
 | Board revisions | SCH is the TurboGrafx-16 sheet. Other revisions were not compared. |
 | Missing manual page | A complete scan of MAN (page H6-6) |
 
-## 17. Limits of the measurements
+## 16. Limits of the measurements
 
 - VS and WFM are photographs of CRT instruments. Geometric error of the
   photograph and trace width limit phase readings to about 1 degree and
@@ -617,7 +550,7 @@ Observations on real hardware (author):
 - Die observations are from optical inspection of the metal layer and were not
   confirmed by tracing.
 
-## 18. Repository contents
+## 17. Repository contents
 
 | Path | Content |
 |---|---|
@@ -626,6 +559,6 @@ Observations on real hardware (author):
 | `assets/vector_scope_overlay__v4.png` | Graticule (section 11) |
 | `captures/` | Captures VS and WFM, and the alignment of VS to the graticule |
 | `research/make_vce_palette.py` | Palette generator; writes `vce_composite.pal` |
-| `research/artifact_sim.py`, `research/composite_preview.py` | Simulations of section 15 |
-| `research/preview/` | Rendered previews |
+| `research/artifact_sim.py`, `research/composite_preview.py` | Composite signal simulations; not covered in this document |
+| `research/preview/` | Output of those simulations |
 | `docs/img/` | Screenshots |
