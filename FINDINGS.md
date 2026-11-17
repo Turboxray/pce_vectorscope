@@ -460,7 +460,10 @@ U and V are in IRE on a vectorscope with burst at 40 IRE p-p and at 180 deg.
 | R-Y / B-Y gain | g | 8.2 / 6.2 | SCH, VS |
 | Rotation | rot | -8.5 deg | VS |
 | Quadrature error | q | 0 deg | VS (not resolved) |
-| Burst | - | 37 IRE p-p | WFM |
+
+Burst on the wire is 37 IRE p-p (WFM). It is not a parameter: k is already
+stated against burst, so the palette and the vectorscope do not depend on it.
+The waveform view draws burst and the chroma envelopes at that level.
 
 Decode to RGB (standard NTSC):
 

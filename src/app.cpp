@@ -674,8 +674,6 @@ void ui_model() {
     ImGui::TextDisabled("R-Y / B-Y %.4f", g_params.ry_gain);
     slide("Rotation", &g_params.rotation_deg, -25, 25, "%.2f deg", "The whole chroma pattern against burst. The scope photo gives -8.3 to -8.7,\nand about ten consoles across the range showed much the same, so it is part of the default.");
     slide("Quadrature error", &g_params.quadrature_deg, -20, 20, "%.2f deg", "R-Y axis away from 90 degrees to the B-Y axis.");
-    slide("Burst p-p", &g_params.burst_pp_ire, 30, 45, "%.1f IRE",
-          "Burst as it really is with sync at 40 IRE. Measured 37 to 40.\nOnly matters to the waveform view; the palette does not depend on it.");
 
     ImGui::SeparatorText("Luma mapping");
     slide("Max white (IRE)", &g_params.map_white_ire, 50, 120, "%.1f",
@@ -1176,7 +1174,7 @@ void ui_wave() {
                       ImVec2(x + sync_w * 0.45f, Y(-40)), ImVec2(x + sync_w * 0.45f, Y(0)), ImVec2(x + sync_w, Y(0))};
     dl->AddPolyline(sync, 6, trace, 0, 1.5f);
     if (!g_wave.lowpass) {
-        float b = (float)g_params.burst_pp_ire * 0.5f;
+        float b = (float)vce::BURST_PP_IRE * 0.5f;
         dl->AddRectFilled(ImVec2(x + sync_w * 0.55f, Y(b)), ImVec2(x + sync_w * 0.9f, Y(-b)), IM_COL32(210, 190, 90, 110));
         dl->AddRect(ImVec2(x + sync_w * 0.55f, Y(b)), ImVec2(x + sync_w * 0.9f, Y(-b)), IM_COL32(210, 190, 90, 255));
     }
@@ -1184,7 +1182,7 @@ void ui_wave() {
     std::vector<Bar> bars = wave_bars();
     float x0 = left + sync_w, bw = (right - x0) / (float)bars.size();
     vce::Carrier shape = g_wave.shape == 0 ? vce::Carrier::Sine : g_wave.shape == 1 ? vce::Carrier::ThreeLevel : vce::Carrier::Square;
-    double burst_scale = g_params.burst_pp_ire / 40.0;
+    double burst_scale = vce::BURST_PP_IRE / 40.0;  // the steps are against burst at 40 IRE; this view shows the wire
 
     struct Level {  // a bar of one signal: its luma level and the peak of the chroma around it
         double luma, peak;

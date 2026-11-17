@@ -214,7 +214,6 @@ const Field FIELDS[] = {
     {"ry_gain", &Params::ry_gain, nullptr, nullptr},
     {"rotation_deg", &Params::rotation_deg, nullptr, nullptr},
     {"quadrature_deg", &Params::quadrature_deg, nullptr, nullptr},
-    {"burst_pp_ire", &Params::burst_pp_ire, nullptr, nullptr},
     {"map_white_ire", &Params::map_white_ire, nullptr, nullptr},
     {"map_black_ire", &Params::map_black_ire, nullptr, nullptr},
     {"post", nullptr, &Params::post, nullptr},
@@ -244,6 +243,7 @@ bool from_text(const std::string& text, Params& p) {
     int found = 0;
     int auto_contrast = -1;  // only in files written before the luma mapping existed
     bool acc = true;         // only in files written while chroma could be taken at its level on the wire
+    double burst = BURST_PP_IRE;  // only in files written while the burst level was a setting; matters with acc off
     bool levels = false, controls = false, knobs = false;
     std::istringstream in(text);
     std::string line;
@@ -268,6 +268,9 @@ bool from_text(const std::string& text, Params& p) {
         } else if (key == "acc") {
             acc = std::atoi(value) != 0;
             found++;
+        } else if (key == "burst_pp_ire") {
+            burst = std::strtod(value, nullptr);
+            found++;
         } else if (key == "map_white_ire" || key == "map_black_ire")
             levels = true;
         else if (key == "post")
@@ -289,7 +292,7 @@ bool from_text(const std::string& text, Params& p) {
     if (!acc) {
         if (!q.post) q.contrast = 1.0, q.brightness = 0.0, q.saturation = 1.0, q.tint_deg = 0.0;  // not in use
         q.post = true;
-        q.saturation *= q.burst_pp_ire / 40.0;
+        q.saturation *= burst / 40.0;
     }
     // The picture-tube settings of older files (tube, primaries, white_point, crt_gamma) are not read: that stage is gone.
     p = q;

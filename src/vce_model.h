@@ -6,6 +6,11 @@
 
 namespace vce {
 
+// Burst on the wire, peak to peak, with sync at 40 IRE: measured 37 to 40. Not a setting. The chroma steps are stated
+// against burst, so the palette and the vectorscope do not depend on it; the waveform view draws burst and the chroma
+// envelopes at this level.
+constexpr double BURST_PP_IRE = 37.0;
+
 struct Params {
     // --- Console: what the chip and its mixing resistors put on the composite pin.
     double white_ire = 89.0;        // luma code 31, with sync at 40 IRE
@@ -14,7 +19,6 @@ struct Params {
     double ry_gain = 8.2 / 6.2;     // R-Y is mixed in this much stronger than B-Y (8.2k / 6.2k)
     double rotation_deg = -8.5;     // whole chroma pattern against burst
     double quadrature_deg = 0.0;    // R-Y axis error from 90 degrees
-    double burst_pp_ire = 37.0;     // burst as it really is, with sync at 40 IRE; the palette does not depend on it
     // --- Luma mapping: the signal levels that come out as full white and as black.
     double map_white_ire = 89.0;    // max white; the default is the console's own white, so code 31 is full scale
     double map_black_ire = 0.0;
