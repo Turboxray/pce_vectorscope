@@ -5,6 +5,9 @@ ROM, D/A converters, mixing resistors, NTSC decode) with a vectorscope, a
 waveform view, a before and after view of a picture, and a 512-colour palette
 export for Mesen 2.
 
+It runs as a Windows program, and in a browser at
+<https://turboxray.github.io/pce_vectorscope/>.
+
 The measurements behind the model, and what is still open, are in
 [FINDINGS.md](FINDINGS.md).
 
@@ -60,8 +63,9 @@ The result is `build_web\site` (`index.html`, `index.js`, `index.wasm`). Serve
 that folder over HTTP to try it, for example
 `python -m http.server -d build_web\site 8000`.
 `.github/workflows/pages.yml` does the same build on every push to `main` and
-publishes it with GitHub Pages; the repository's Pages source has to be set to
-"GitHub Actions" for that.
+publishes it with GitHub Pages at
+<https://turboxray.github.io/pce_vectorscope/>; the repository's Pages source
+has to be set to "GitHub Actions" for that.
 
 In a browser, a file is picked or dropped onto the page instead of being read
 from a path, and a saved file arrives as a download. There is no command line;
