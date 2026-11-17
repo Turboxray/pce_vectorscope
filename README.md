@@ -61,8 +61,8 @@ The result is `build\pce_vectorscope.exe`.
 ### Vectorscope conventions
 
 - The graticule is `assets/vector_scope_overlay__v4.png`, compiled into the
-  exe. Its boxes are the NTSC ones: 75% bars with 7.5% setup, red at 43.9 IRE,
-  the circle at 52.5 IRE.
+  exe. Its boxes are the NTSC 75% bar targets: red at 43.9 IRE against 40 IRE
+  p-p burst, the circle at 52.5 IRE.
 - The console's dots are placed by their signal level against burst, as on
   the instrument.
 - RGB data (the reference palette, "TV output", a plotted image) is placed as

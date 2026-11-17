@@ -52,7 +52,7 @@ document are from the one console in captures VS and WFM.
 | Mixing resistors | Y 4.7k, R-Y 6.2k, B-Y 8.2k | Observed (SCH) | 8 |
 | R-Y / B-Y gain | 1.3226 (8.2k / 6.2k); 1.29 to 1.32 measured | Observed, Measured | 8, 10 |
 | White level | 89 IRE with sync at 40 IRE | Measured | 9 |
-| Black level | 0 IRE (blanking level, no setup) | Measured | 9 |
+| Black level | 0 IRE (blanking level; no 7.5 IRE pedestal) | Measured | 9 |
 | Burst | 37 to 40 IRE p-p with sync at 40 IRE | Measured | 9 |
 | Chroma per B-Y count | 2.14 IRE with burst taken as 40 IRE p-p (2.11 to 2.18) | Measured | 10 |
 | Rotation of chroma against burst | -8.5 deg (-8.3 to -8.7; earlier estimate +/-1.5) | Measured | 10 |
@@ -336,7 +336,7 @@ Status: Measured from capture WFM. Sync set to -40 IRE.
 
 | Level | Reading |
 |---|---|
-| Black | 0 IRE, equal to blanking. No setup. |
+| Black | 0 IRE, equal to blanking. There is no 7.5 IRE pedestal. |
 | White | 89 IRE |
 | Burst | 37 to 40 IRE p-p, depending on the beam width subtracted |
 | Bar luma | All six bars within 1.7 IRE of Y code / 31 x 89 |
@@ -424,17 +424,14 @@ tracing of the instrument graticule.
 | Burst mark for 100% bars | not drawn | 0.2858 of circle radius |
 | +/-10% marks about the 75% burst mark | not drawn | 0.4192 and 0.3431 of circle radius |
 
-- The boxes are the NTSC targets for 75% bars with 7.5% setup: amplitude
-  0.75 x 92.5 x |U,V| IRE. Red and cyan 43.9 IRE, green and magenta 41.0 IRE,
-  blue and yellow 31.0 IRE, with burst at 40 IRE p-p.
+- Box centres, with burst at 40 IRE p-p: red and cyan 43.9 IRE, green and
+  magenta 41.0 IRE, blue and yellow 31.0 IRE. The red box is at 2.19 x the
+  burst peak.
 - This places the circle at 52.5 IRE. Burst at 20 IRE peak then lies at 0.3808
   of the circle radius for 75% bars and 0.2856 for 100% bars. The instrument's
   own burst marks are at 0.3814 and 0.2858.
-- Setup is a luma offset. A generator with setup also scales the whole picture,
-  chroma included, to 92.5 IRE, and leaves burst unchanged. The boxes of a
-  setup graticule are therefore at 2.19 x burst; those of a no-setup graticule
-  would be at 2.37 x burst. The two rulers of section 10.2 agree (2.14 and
-  2.15 IRE per count) only for the setup scale.
+- The two rulers of section 10.2 agree on this scale: 2.14 IRE per count from
+  burst, 2.15 from the boxes.
 - The earlier Python tool (PCE_pal_maker) scales Cb and Cr by 0.78 and 1.1.
   The exact factors for this graticule are 0.763 and 1.076. Its plot is 2.2%
   larger.
