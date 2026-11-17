@@ -1,4 +1,4 @@
-// HuC6260 (VCE) composite colour model: matrix ROM -> signal levels -> TV decode -> 8-bit RGB.
+// HuC6260 (VCE) composite colour model: matrix ROM -> signal levels -> NTSC decode -> 8-bit RGB.
 #pragma once
 #include <array>
 #include <cstdint>
@@ -14,19 +14,16 @@ struct Params {
     double ry_gain = 8.2 / 6.2;     // R-Y is mixed in this much stronger than B-Y (8.2k / 6.2k)
     double rotation_deg = -8.5;     // whole chroma pattern against burst
     double quadrature_deg = 0.0;    // R-Y axis error from 90 degrees
-    double burst_pp_ire = 37.0;     // burst as it really is, with sync at 40 IRE
-    // --- Television.
-    bool acc = true;                // chroma gain follows burst
-    bool auto_contrast = true;      // contrast and brightness set so code 0 = black, code 31 = full white
-    double contrast = 1.0;          // used when auto_contrast is off: 1.0 puts 100 IRE at full white
-    double brightness = 0.0;
+    double burst_pp_ire = 37.0;     // burst as it really is, with sync at 40 IRE; the palette does not depend on it
+    // --- Luma mapping: the signal levels that come out as full white and as black.
+    double map_white_ire = 89.0;    // max white; the default is the console's own white, so code 31 is full scale
+    double map_black_ire = 0.0;
+    // --- Post adjustment: changes to the decoded picture. Not part of the console's signal.
+    bool post = false;             // the adjustments below are in use; off, they all count as neutral
+    double contrast = 1.0;          // picture gain, luma and chroma: 1.0 leaves max white at full scale
+    double brightness = 0.0;        // added after contrast, as a fraction of full scale
     double saturation = 1.0;
     double tint_deg = 0.0;
-    // --- Picture tube.
-    int tube = 0;                   // 0 = decoded values go straight out as sRGB, 1 = phosphors and gamma
-    int primaries = 0;              // 0 SMPTE C, 1 NTSC 1953, 2 Rec.709
-    int white_point = 0;            // 0 D65, 1 Illuminant C, 2 9300 K
-    double crt_gamma = 2.4;
 
     bool operator==(const Params&) const = default;
 };
@@ -36,14 +33,21 @@ struct Entry {
     int y_code, by, ry;             // matrix ROM: luma 0..31, signed chroma counts
     double y_ire;                   // luma level
     double u_ire, v_ire;            // chroma vector on the scope's B-Y and R-Y axes, burst = 40 IRE p-p
-    double decoded[3];              // R'G'B' as the TV decodes it, before any clipping (0..1 nominal)
+    double decoded[3];              // R'G'B' as decoded, before any clipping (0..1 nominal)
+    uint8_t rgb[3];                 // final 8-bit colour
+    bool clipped;
+};
+
+struct Luma {                       // one luma code with no chroma
+    double y_ire;
     uint8_t rgb[3];                 // final 8-bit colour
     bool clipped;
 };
 
 struct Palette {
     std::array<Entry, 512> e;       // index = G<<6 | R<<3 | B
-    int clipped = 0;
+    int clipped = 0;                // how many of the 512 clip
+    std::array<Luma, 32> luma;      // every luma code, 0..31; only eight of them are greys the console can make
 };
 
 enum class Carrier { Sine, ThreeLevel, Square };
@@ -51,7 +55,7 @@ enum class Carrier { Sine, ThreeLevel, Square };
 void rom(int r, int g, int b, int& y_code, int& by, int& ry);
 Palette build(const Params& p);
 
-// Picture gain of the TV model: decoded value per IRE.
+// Picture gain of the decode: decoded value per IRE.
 double picture_gain(const Params& p);
 
 // Peak of the modulated chroma for a given carrier shape, in the same units as chroma_ire.
@@ -65,7 +69,8 @@ struct FitResult {
     int used = 0;                   // entries that were not clipped in the reference
     double rms_ire = 0;             // chroma error left after the fit
 };
-// Set the console chroma numbers (and contrast, if needed) so the model reproduces a 512-colour palette.
+// Set the console chroma numbers (and the luma mapping, if needed) so the model reproduces a 512-colour palette.
+// The post adjustments are switched off.
 FitResult fit_to_palette(const uint8_t ref[512][3], Params& p);
 
 std::string to_text(const Params& p);

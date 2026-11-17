@@ -229,7 +229,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE, PWSTR, int) {
     style.ScaleAllSizes(scale);
     style.FontScaleDpi = scale;
     const char* font = "C:\\Windows\\Fonts\\segoeui.ttf";
-    if (GetFileAttributesA(font) != INVALID_FILE_ATTRIBUTES) io.Fonts->AddFontFromFileTTF(font, 17.0f);
+    const char* bold = "C:\\Windows\\Fonts\\segoeuib.ttf";  // the second font: app.cpp uses it for "Not Recommended"
+    if (GetFileAttributesA(font) != INVALID_FILE_ATTRIBUTES) {
+        io.Fonts->AddFontFromFileTTF(font, 17.0f);
+        if (GetFileAttributesA(bold) != INVALID_FILE_ATTRIBUTES) io.Fonts->AddFontFromFileTTF(bold, 17.0f);
+    }
     ImGui_ImplWin32_Init(g_hwnd);
     ImGui_ImplDX11_Init(g_device, g_context);
     app::init(scale);

@@ -462,20 +462,25 @@ U and V are in IRE on a vectorscope with burst at 40 IRE p-p and at 180 deg.
 | Quadrature error | q | 0 deg | VS (not resolved) |
 | Burst | - | 37 IRE p-p | WFM |
 
-Television decode (standard NTSC):
+Decode to RGB (standard NTSC):
 
 ```
-gain  = 1 / (white - black)        contrast set so white is full scale
-B'-Y' = U * gain * saturation / 0.492
-R'-Y' = V * gain * saturation / 0.877
+gain  = 1 / (max white - black level)
+Y'    = (luma - black level) * gain
+B'-Y' = U * gain / 0.492
+R'-Y' = V * gain / 0.877
 G'-Y' = -(0.299 (R'-Y') + 0.114 (B'-Y')) / 0.587
 ```
 
-- Chroma is referred to burst (automatic chroma control). Without it, chroma
-  is scaled by burst / 40.
-- An optional picture-tube stage applies gamma, converts from SMPTE C, NTSC
-  1953 or Rec. 709 primaries and a D65, Illuminant C or 9300 K white point to
-  sRGB.
+- Luma mapping: max white and black level are the signal levels that come
+  out as full white and as black. The defaults are the console's own, 89 and
+  0 IRE, so luma code 31 is full scale.
+- Chroma is referred to burst: U and V are what a vectorscope with burst at
+  40 IRE p-p reads, whatever the burst level on the wire.
+- Post adjustment (contrast, brightness, colour and tint on the decoded
+  colours) is not part of the signal. The tool hides it unless it is switched
+  on in Settings, and marks it as not recommended: such controls belong in
+  the emulator or on the display, not in the palette file.
 - With the defaults, 8 of 512 entries clip: (R,G,B) = (0,0,1), (0,0,3),
   (0,0,5), (0,0,7), (7,7,0), (7,7,2), (7,7,4), (7,7,6).
 - The tool's palette export with default parameters is byte-identical to
@@ -513,7 +518,7 @@ The model was fitted to three palette files from the earlier Python tool:
 | File | Chroma per count | R-Y / B-Y gain | Rotation | Quadrature | Residual |
 |---|---|---|---|---|---|
 | gen_pal.pal | 2.117 IRE | 1.314 | -9.49 deg | +0.80 deg | within 1 level |
-| pce.pal | 2.048 IRE | 1.322 | -9.97 deg | -0.29 deg | within 7 levels; contrast 1.142 |
+| pce.pal | 2.048 IRE | 1.322 | -9.97 deg | -0.29 deg | within 7 levels; luma mapping: max white 86.5 IRE, black level -1.1 IRE |
 | palette.pal | 2.207 IRE | 1.288 | -9.86 deg | +1.34 deg | within 1 level |
 
 - Model default against gen_pal.pal: mean difference 0.85 levels, maximum 4

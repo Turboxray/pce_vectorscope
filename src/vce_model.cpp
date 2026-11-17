@@ -12,62 +12,6 @@ namespace {
 const double PI = 3.14159265358979323846;
 double rad(double deg) { return deg * PI / 180.0; }
 
-struct Mat3 {
-    double m[3][3];
-};
-
-Mat3 mul(const Mat3& a, const Mat3& b) {
-    Mat3 r{};
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++)
-            for (int k = 0; k < 3; k++) r.m[i][j] += a.m[i][k] * b.m[k][j];
-    return r;
-}
-
-Mat3 inverse(const Mat3& a) {
-    const double (*m)[3] = a.m;
-    double det = m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) - m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
-                 m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
-    Mat3 r{};
-    for (int i = 0; i < 3; i++)
-        for (int j = 0; j < 3; j++) {
-            int i1 = (i + 1) % 3, i2 = (i + 2) % 3, j1 = (j + 1) % 3, j2 = (j + 2) % 3;
-            r.m[j][i] = (m[i1][j1] * m[i2][j2] - m[i1][j2] * m[i2][j1]) / det;
-        }
-    return r;
-}
-
-// Chromaticities (x, y) of red, green and blue.
-const double PRIMARIES[3][3][2] = {
-    {{0.630, 0.340}, {0.310, 0.595}, {0.155, 0.070}},  // SMPTE C
-    {{0.670, 0.330}, {0.210, 0.710}, {0.140, 0.080}},  // NTSC 1953
-    {{0.640, 0.330}, {0.300, 0.600}, {0.150, 0.060}},  // Rec.709 / sRGB
-};
-const double WHITES[3][2] = {
-    {0.3127, 0.3290},    // D65
-    {0.3101, 0.3162},    // Illuminant C
-    {0.28315, 0.29711},  // 9300 K on the daylight locus
-};
-
-// RGB (linear light) to XYZ for a set of primaries and a white point, white at Y = 1.
-Mat3 rgb_to_xyz(const double prim[3][2], const double white[2]) {
-    Mat3 c{};
-    for (int k = 0; k < 3; k++) {
-        c.m[0][k] = prim[k][0] / prim[k][1];
-        c.m[1][k] = 1.0;
-        c.m[2][k] = (1.0 - prim[k][0] - prim[k][1]) / prim[k][1];
-    }
-    const double w[3] = {white[0] / white[1], 1.0, (1.0 - white[0] - white[1]) / white[1]};
-    Mat3 ci = inverse(c);
-    for (int k = 0; k < 3; k++) {
-        double s = ci.m[k][0] * w[0] + ci.m[k][1] * w[1] + ci.m[k][2] * w[2];
-        for (int i = 0; i < 3; i++) c.m[i][k] *= s;
-    }
-    return c;
-}
-
-double srgb_encode(double v) { return v <= 0.0031308 ? 12.92 * v : 1.055 * std::pow(v, 1.0 / 2.4) - 0.055; }
-
 double carrier(double t, Carrier shape) {
     double ph = std::fmod(std::fmod(t, 6.0) + 6.0, 6.0);  // one cycle = 6 master clock ticks
     if (shape == Carrier::ThreeLevel) return (ph > 0.5 && ph < 2.5) ? 1.0 : (ph > 3.5 && ph < 5.5) ? -1.0 : 0.0;
@@ -83,32 +27,46 @@ void rom(int r, int g, int b, int& y_code, int& by, int& ry) {
 }
 
 double picture_gain(const Params& p) {
-    if (!p.auto_contrast) return p.contrast / 100.0;
-    double span = p.white_ire - p.black_ire;
-    return span > 1e-9 ? 1.0 / span : 0.0;
+    double span = p.map_white_ire - p.map_black_ire;
+    return span > 1e-9 ? (p.post ? p.contrast : 1.0) / span : 0.0;
 }
 
 Palette build(const Params& p) {
     Palette pal;
     const double rot = rad(p.rotation_deg);
     const double v_axis = rot + rad(90.0 + p.quadrature_deg);
-    const double tint = rad(p.tint_deg);
+    // The post adjustments, all neutral when they are switched off.
+    const double tint = p.post ? rad(p.tint_deg) : 0.0;
     const double gain = picture_gain(p);
-    const double black = p.auto_contrast ? p.black_ire : 0.0;
-    const double chroma_gain = gain * p.saturation * (p.acc ? 1.0 : p.burst_pp_ire / 40.0);
+    const double brightness = p.post ? p.brightness : 0.0;
+    const double chroma_gain = gain * (p.post ? p.saturation : 1.0);  // chroma is as a scope reads it: against burst
 
-    Mat3 tube{};
-    if (p.tube == 1) {
-        int pr = std::clamp(p.primaries, 0, 2), wp = std::clamp(p.white_point, 0, 2);
-        Mat3 to_srgb = inverse(rgb_to_xyz(PRIMARIES[2], WHITES[0]));
-        tube = mul(to_srgb, rgb_to_xyz(PRIMARIES[pr], WHITES[wp]));
-        // A white that sRGB cannot show at full level is scaled down, not clipped.
-        double top = 0;
-        for (int i = 0; i < 3; i++) top = std::max(top, tube.m[i][0] + tube.m[i][1] + tube.m[i][2]);
-        if (top > 1.0)
-            for (auto& row : tube.m)
-                for (double& v : row) v /= top;
-    }
+    auto luma_ire = [&](int y_code) { return p.black_ire + y_code / 31.0 * (p.white_ire - p.black_ire); };
+
+    // Luma mapping, decode and post adjustment: a luma level and a chroma vector to the final 8-bit colour.
+    // Returns true if it clipped.
+    auto show = [&](double y_ire, double u_ire, double v_ire, double decoded[3], uint8_t rgb[3]) {
+        // Standard NTSC decode.
+        double u = u_ire * std::cos(tint) - v_ire * std::sin(tint);
+        double v = u_ire * std::sin(tint) + v_ire * std::cos(tint);
+        double y = (y_ire - p.map_black_ire) * gain + brightness;
+        double b_y = u * chroma_gain / 0.492;
+        double r_y = v * chroma_gain / 0.877;
+        double g_y = -(0.299 * r_y + 0.114 * b_y) / 0.587;
+        decoded[0] = y + r_y;
+        decoded[1] = y + g_y;
+        decoded[2] = y + b_y;
+
+        const double tol = 0.5 / 255.0;
+        bool clipped = false;
+        double out[3];
+        for (int k = 0; k < 3; k++) {
+            if (decoded[k] < -tol || decoded[k] > 1.0 + tol) clipped = true;
+            out[k] = std::clamp(decoded[k], 0.0, 1.0);
+        }
+        for (int k = 0; k < 3; k++) rgb[k] = (uint8_t)std::clamp((int)std::nearbyint(255.0 * out[k]), 0, 255);
+        return clipped;
+    };
 
     for (int i = 0; i < 512; i++) {
         Entry& e = pal.e[i];
@@ -121,37 +79,15 @@ Palette build(const Params& p) {
         double c = p.chroma_ire * p.ry_gain * e.ry;
         e.u_ire = a * std::cos(rot) + c * std::cos(v_axis);
         e.v_ire = a * std::sin(rot) + c * std::sin(v_axis);
-        e.y_ire = p.black_ire + e.y_code / 31.0 * (p.white_ire - p.black_ire);
-
-        // Television: standard NTSC decode.
-        double u = e.u_ire * std::cos(tint) - e.v_ire * std::sin(tint);
-        double v = e.u_ire * std::sin(tint) + e.v_ire * std::cos(tint);
-        double y = (e.y_ire - black) * gain + p.brightness;
-        double b_y = u * chroma_gain / 0.492;
-        double r_y = v * chroma_gain / 0.877;
-        double g_y = -(0.299 * r_y + 0.114 * b_y) / 0.587;
-        e.decoded[0] = y + r_y;
-        e.decoded[1] = y + g_y;
-        e.decoded[2] = y + b_y;
-
-        const double tol = 0.5 / 255.0;
-        e.clipped = false;
-        double out[3];
-        for (int k = 0; k < 3; k++) {
-            if (e.decoded[k] < -tol || e.decoded[k] > 1.0 + tol) e.clipped = true;
-            out[k] = std::clamp(e.decoded[k], 0.0, 1.0);
-        }
-        if (p.tube == 1) {
-            double lin[3];
-            for (int k = 0; k < 3; k++) lin[k] = std::pow(out[k], p.crt_gamma);
-            for (int k = 0; k < 3; k++) {
-                double s = tube.m[k][0] * lin[0] + tube.m[k][1] * lin[1] + tube.m[k][2] * lin[2];
-                if (s < -1e-4 || s > 1.0 + 1e-4) e.clipped = true;
-                out[k] = srgb_encode(std::clamp(s, 0.0, 1.0));
-            }
-        }
-        for (int k = 0; k < 3; k++) e.rgb[k] = (uint8_t)std::clamp((int)std::nearbyint(255.0 * out[k]), 0, 255);
+        e.y_ire = luma_ire(e.y_code);
+        e.clipped = show(e.y_ire, e.u_ire, e.v_ire, e.decoded, e.rgb);
         if (e.clipped) pal.clipped++;
+    }
+    for (int n = 0; n < 32; n++) {
+        Luma& l = pal.luma[n];
+        double decoded[3];
+        l.y_ire = luma_ire(n);
+        l.clipped = show(l.y_ire, 0.0, 0.0, decoded, l.rgb);
     }
     return pal;
 }
@@ -204,18 +140,19 @@ FitResult fit_to_palette(const uint8_t ref[512][3], Params& p) {
     double offset = (sy - slope * sx) / n;
 
     Params q = p;
+    q.post = false;
+    q.contrast = 1.0;
+    q.brightness = 0.0;
     q.saturation = 1.0;
     q.tint_deg = 0.0;
-    q.tube = 0;
-    q.acc = true;
-    if (std::fabs(slope - 1.0) < 0.004 && std::fabs(offset) < 0.004) {
-        q.auto_contrast = true;
-        q.brightness = 0.0;
+    if (std::fabs(slope - 1.0) < 0.004 && std::fabs(offset) < 0.004) {  // the reference shows the console's white at full scale
+        q.map_white_ire = q.white_ire;
+        q.map_black_ire = q.black_ire;
     } else {
-        q.auto_contrast = false;
-        double span = q.white_ire - q.black_ire;
-        q.contrast = slope * 100.0 / span;
-        q.brightness = offset - q.black_ire * q.contrast / 100.0;
+        if (slope < 1e-9) return res;
+        double span = (q.white_ire - q.black_ire) / slope;  // IRE from black to full white in the reference
+        q.map_black_ire = q.black_ire - offset * span;
+        q.map_white_ire = q.map_black_ire + span;
     }
     double gain = picture_gain(q);
     if (gain <= 0) return res;
@@ -278,17 +215,16 @@ const Field FIELDS[] = {
     {"rotation_deg", &Params::rotation_deg, nullptr, nullptr},
     {"quadrature_deg", &Params::quadrature_deg, nullptr, nullptr},
     {"burst_pp_ire", &Params::burst_pp_ire, nullptr, nullptr},
-    {"acc", nullptr, &Params::acc, nullptr},
-    {"auto_contrast", nullptr, &Params::auto_contrast, nullptr},
+    {"map_white_ire", &Params::map_white_ire, nullptr, nullptr},
+    {"map_black_ire", &Params::map_black_ire, nullptr, nullptr},
+    {"post", nullptr, &Params::post, nullptr},
     {"contrast", &Params::contrast, nullptr, nullptr},
     {"brightness", &Params::brightness, nullptr, nullptr},
     {"saturation", &Params::saturation, nullptr, nullptr},
     {"tint_deg", &Params::tint_deg, nullptr, nullptr},
-    {"tube", nullptr, nullptr, &Params::tube},
-    {"primaries", nullptr, nullptr, &Params::primaries},
-    {"white_point", nullptr, nullptr, &Params::white_point},
-    {"crt_gamma", &Params::crt_gamma, nullptr, nullptr},
 };
+// Names the same settings had in files written by earlier versions.
+const char* const RENAMED[][2] = {{"tv_white_ire", "map_white_ire"}, {"tv_black_ire", "map_black_ire"}, {"tv_controls", "post"}};
 }  // namespace
 
 std::string to_text(const Params& p) {
@@ -306,6 +242,9 @@ std::string to_text(const Params& p) {
 bool from_text(const std::string& text, Params& p) {
     Params q = p;
     int found = 0;
+    int auto_contrast = -1;  // only in files written before the luma mapping existed
+    bool acc = true;         // only in files written while chroma could be taken at its level on the wire
+    bool levels = false, controls = false, knobs = false;
     std::istringstream in(text);
     std::string line;
     while (std::getline(in, line)) {
@@ -314,6 +253,8 @@ bool from_text(const std::string& text, Params& p) {
         std::string key = line.substr(0, eq);
         while (!key.empty() && (key.back() == ' ' || key.back() == '\t')) key.pop_back();
         const char* value = line.c_str() + eq + 1;
+        for (const auto& name : RENAMED)
+            if (key == name[0]) key = name[1];
         for (const Field& f : FIELDS) {
             if (key != f.key) continue;
             if (f.d) q.*(f.d) = std::strtod(value, nullptr);
@@ -321,8 +262,36 @@ bool from_text(const std::string& text, Params& p) {
             else q.*(f.i) = std::atoi(value);
             found++;
         }
+        if (key == "auto_contrast") {
+            auto_contrast = std::atoi(value) != 0 ? 1 : 0;
+            found++;
+        } else if (key == "acc") {
+            acc = std::atoi(value) != 0;
+            found++;
+        } else if (key == "map_white_ire" || key == "map_black_ire")
+            levels = true;
+        else if (key == "post")
+            controls = true;
+        else if (key == "contrast" || key == "brightness" || key == "saturation" || key == "tint_deg")
+            knobs = true;
     }
     if (found == 0) return false;
+    // An older file: with auto_contrast on, the console's white and black were full scale and contrast was not used;
+    // with it off, contrast 1 put 100 IRE at full scale and 0 IRE at black.
+    if (auto_contrast >= 0 && !levels) {
+        q.map_white_ire = auto_contrast ? q.white_ire : 100.0;
+        q.map_black_ire = auto_contrast ? q.black_ire : 0.0;
+        if (auto_contrast) q.contrast = 1.0;
+    }
+    // A file that sets an adjustment without saying whether they are in use: they are, if any is off neutral.
+    if (knobs && !controls) q.post = q.contrast != 1.0 || q.brightness != 0.0 || q.saturation != 1.0 || q.tint_deg != 0.0;
+    // An older file with acc off: chroma was taken at burst / 40 of what a scope reads. That is a colour setting.
+    if (!acc) {
+        if (!q.post) q.contrast = 1.0, q.brightness = 0.0, q.saturation = 1.0, q.tint_deg = 0.0;  // not in use
+        q.post = true;
+        q.saturation *= q.burst_pp_ire / 40.0;
+    }
+    // The picture-tube settings of older files (tube, primaries, white_point, crt_gamma) are not read: that stage is gone.
     p = q;
     return true;
 }

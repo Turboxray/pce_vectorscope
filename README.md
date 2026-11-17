@@ -46,11 +46,28 @@ The result is `build\pce_vectorscope.exe`.
 
 - Left: the model. The drop-down at the top shows what the settings were
   loaded from. Every slider has a tooltip saying what it is and what was
-  measured. Ctrl+click a slider to type a value.
-- Middle: vectorscope (burst = 40 IRE p-p) and waveform view (sync = 40 IRE).
-- Right: the 512 colours. Click one to select it everywhere.
+  measured. Ctrl+click a slider to type a value. The B-Y and R-Y steps move
+  as one while "Lock B-Y and R-Y" is ticked, and separately when it is not.
+- Middle: vectorscope (burst = 40 IRE p-p) and waveform view (sync = 40 IRE),
+  showing the signal the console puts out.
+- "Luma mapping" sets which signal levels come out as full white and as
+  black.
+- "Settings..." can show the post adjustment (contrast, brightness, colour,
+  tint) and a "Post" box on both views, which plots the final colours of the
+  palette; on the waveform with black at 0 IRE and full white at 100. Post
+  adjustment changes the decoded colours, not the signal. It is hidden by
+  default and not recommended: such controls belong in the emulator or on
+  the display, not baked into the palette file.
+- Right: the 512 colours. Click one to select it everywhere. A triangle in
+  the corner of a colour means it clipped: its R, G or B fell outside 0 to
+  255 and was cut off. Under the grid, the eight greys (R = G = B) and all 32
+  luma codes with no chroma, as final colours.
 - Drop a `.pal` to compare against it, an image to plot its colours or to put
   a photo of a real scope behind the plot, a saved parameter `.txt` to load it.
+- A plotted image shows on both views, beside the generated output or on its
+  own ("Image" box). On the vectorscope it is its colours. On the waveform it
+  is its pure greys ("Grey steps"), its luma levels ("All 32 luma codes") or
+  an R, G, B parade, with full white at 100 IRE.
 - With a photo shown: Shift+drag moves it, Shift+wheel resizes it, Ctrl+wheel
   turns it. The alignment is saved with the parameters.
 - `captures\vectorscope_IMG_2902_aligned.txt` loads the capture of a real
@@ -65,7 +82,7 @@ The result is `build\pce_vectorscope.exe`.
   p-p burst, the circle at 52.5 IRE.
 - The console's dots are placed by their signal level against burst, as on
   the instrument.
-- RGB data (the reference palette, "TV output", a plotted image) is placed as
+- RGB data (the reference palette, a plotted image, "Post") is placed as
   that picture encoded to NTSC, so 75% RGB bars land in the boxes.
 - "75% bars / 100% bars" is the instrument's gain switch.
 - To use another graticule image, replace the PNG and set the `GRAT_`
