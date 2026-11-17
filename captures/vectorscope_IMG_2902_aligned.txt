@@ -1,0 +1,24 @@
+# PCE vectorscope parameters
+white_ire=89
+black_ire=0
+chroma_ire=2.14
+ry_gain=1.322580645
+rotation_deg=-8.5
+quadrature_deg=0
+burst_pp_ire=37
+acc=1
+auto_contrast=1
+contrast=1
+brightness=0
+saturation=1
+tint_deg=0
+tube=0
+primaries=0
+white_point=0
+crt_gamma=2.4
+photo_x=-3.890
+photo_y=-1.920
+photo_width=151.500
+photo_rot=-1.490
+photo_mirror=0
+photo_file=vectorscope_IMG_2902.jpg

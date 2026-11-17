@@ -1,0 +1,106 @@
+# PCE Vectorscope and Palette Generator
+
+A model of the PC Engine / TurboGrafx-16 composite colour path (HuC6260 matrix
+ROM, D/A converters, mixing resistors, NTSC decode) with a vectorscope, a
+waveform view and a 512-colour palette export for Mesen 2.
+
+The measurements behind the model, and what is still open, are in
+[FINDINGS.md](FINDINGS.md).
+
+## Screenshots
+
+Vectorscope: the 512 colours (169 distinct points) on an NTSC graticule.
+
+![Vectorscope](docs/img/vectorscope.png)
+
+Waveform view: colour bars, with the levels measured on a console as yellow
+marks.
+
+![Waveform view](docs/img/waveform.png)
+
+The model over a capture from a real vectorscope.
+
+![Model over a capture](docs/img/vectorscope_capture.png)
+
+A reference palette (white crosses) compared with the model.
+
+![Reference palette](docs/img/reference_palette.png)
+
+## Download
+
+The release page has a Windows x64 build. It is a single statically linked
+exe with nothing to install. The archive also contains `vce_composite.pal`,
+the palette the model produces with its default settings, ready to load with
+the palette loader in Mesen 2's PC Engine settings.
+
+## Build
+
+Needs [w64devkit](https://github.com/skeeto/w64devkit) (gcc, cmake, make) at
+`C:\w64devkit`, or set `W64DEVKIT` to its folder.
+
+    build.bat
+
+The result is `build\pce_vectorscope.exe`.
+
+## Use
+
+- Left: the model. The drop-down at the top shows what the settings were
+  loaded from. Every slider has a tooltip saying what it is and what was
+  measured. Ctrl+click a slider to type a value.
+- Middle: vectorscope (burst = 40 IRE p-p) and waveform view (sync = 40 IRE).
+- Right: the 512 colours. Click one to select it everywhere.
+- Drop a `.pal` to compare against it, an image to plot its colours or to put
+  a photo of a real scope behind the plot, a saved parameter `.txt` to load it.
+- With a photo shown: Shift+drag moves it, Shift+wheel resizes it, Ctrl+wheel
+  turns it. The alignment is saved with the parameters.
+- `captures\vectorscope_IMG_2902_aligned.txt` loads the capture of a real
+  console already lined up with the graticule.
+- "Fit model to it" sets the chroma numbers so the model reproduces the
+  reference palette.
+
+### Vectorscope conventions
+
+- The graticule is `assets/vector_scope_overlay__v4.png`, compiled into the
+  exe. Its boxes are the NTSC ones: 75% bars with 7.5% setup, red at 43.9 IRE,
+  the circle at 52.5 IRE.
+- The console's dots are placed by their signal level against burst, as on
+  the instrument.
+- RGB data (the reference palette, "TV output", a plotted image) is placed as
+  that picture encoded to NTSC, so 75% RGB bars land in the boxes.
+- "75% bars / 100% bars" is the instrument's gain switch.
+- To use another graticule image, replace the PNG and set the `GRAT_`
+  constants at the top of `src/app.cpp` to its centre and scale.
+
+## Command line
+
+    pce_vectorscope [file ...] [--ref x.pal] [--photo x.jpg] [--plot x.png]
+                    [--view scope|wave] [--select 0x1C7] [--params x.txt]
+                    [--bars 75|100] [--zoom 2]
+
+opens the window with those things loaded. Any of these runs without a window:
+
+    --export-pal out.pal      512 x (R, G, B), index = G<<6 | R<<3 | B
+    --export-png out.png      32 x 16 swatches in index order
+    --dump out.tsv            every colour: ROM codes, IRE levels, phase, RGB
+    --fit ref.pal             fit the model to a palette first
+    --save-params out.txt     write the parameters
+
+Exit code 0 on success, 1 if a file could not be written, 2 for bad arguments,
+3 if a fit failed.
+
+## Layout
+
+| Path | Content |
+|---|---|
+| `src/vce_model.*` | The model. No UI or Windows code. |
+| `src/app.cpp` | The user interface |
+| `src/main.cpp` | Win32 and Direct3D 11 host |
+| `assets/` | Vectorscope graticule image |
+| `captures/` | Vectorscope and waveform-monitor captures of a console |
+| `research/` | Python palette generator and composite artifact simulations |
+| `third_party/` | Dear ImGui 1.93 and stb |
+
+## Licence
+
+MIT, see [LICENSE](LICENSE). Dear ImGui (MIT) and stb (MIT / public domain)
+are under their own licences in `third_party/`.
