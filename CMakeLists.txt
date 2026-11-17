@@ -42,7 +42,6 @@ if(EMSCRIPTEN)
   add_executable(pce_vectorscope src/main_web.cpp ${APP_SOURCES})
   target_include_directories(pce_vectorscope PRIVATE third_party/stb)
   target_link_libraries(pce_vectorscope PRIVATE imgui)
-  set(WEB_SHELL ${CMAKE_SOURCE_DIR}/web/shell.html)
   set(WEB_FONT ${CMAKE_SOURCE_DIR}/third_party/imgui/misc/fonts/DroidSans.ttf)
   target_link_options(pce_vectorscope PRIVATE
     -sMIN_WEBGL_VERSION=2
@@ -50,12 +49,15 @@ if(EMSCRIPTEN)
     -sALLOW_MEMORY_GROWTH=1
     -sSTACK_SIZE=1048576
     -sFORCE_FILESYSTEM=1
-    --shell-file ${WEB_SHELL}
     --embed-file ${WEB_FONT}@/DroidSans.ttf)
   set_target_properties(pce_vectorscope PROPERTIES
     OUTPUT_NAME index
-    SUFFIX .html
-    LINK_DEPENDS "${WEB_SHELL};${WEB_FONT}")
+    SUFFIX .js
+    LINK_DEPENDS "${WEB_FONT}")
+  # index.html is written here, not by Emscripten, with a stamp of this configure run on the addresses of index.js and
+  # index.wasm: a browser keeps those files for a while, and would otherwise go on showing the build it already has.
+  string(TIMESTAMP WEB_BUILD "%Y%m%d%H%M%S" UTC)
+  configure_file(web/index.html.in ${CMAKE_BINARY_DIR}/index.html @ONLY)
   set_source_files_properties(src/main_web.cpp src/app.cpp src/vce_model.cpp PROPERTIES COMPILE_OPTIONS "-Wall;-Wextra")
 else()
   add_library(imgui STATIC ${IMGUI_CORE}

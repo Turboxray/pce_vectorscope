@@ -1,4 +1,7 @@
 <!doctype html>
+<!-- PCE Vectorscope and Palette Generator @PROJECT_VERSION@, build @WEB_BUILD@.
+     CMake fills in the version and the build stamp. The stamp goes on the addresses of index.js and index.wasm, so a
+     browser that has an older build of them stored asks for the new ones instead of using its copies. -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -26,6 +29,7 @@
   var Module = {
     canvas: document.getElementById('canvas'),
     arguments: options,
+    locateFile: function (path) { return path + '?v=@WEB_BUILD@'; },
     setStatus: function (text) {
       if (!webgl2) return;
       note.textContent = text || '';
@@ -39,6 +43,6 @@
   };
   if (!webgl2) note.textContent = 'This page needs WebGL 2, which this browser does not have or has switched off.';
 </script>
-{{{ SCRIPT }}}
+<script async src="index.js?v=@WEB_BUILD@"></script>
 </body>
 </html>
