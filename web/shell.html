@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>PCE Vectorscope and Palette Generator</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #0f0f12; }
+  #canvas { display: block; position: absolute; left: 0; top: 0; outline: none; }
+  #note { position: absolute; left: 0; right: 0; top: 45%; text-align: center; color: #c8ccc8; font: 16px sans-serif; }
+</style>
+</head>
+<body>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="note">Loading...</div>
+<script>
+  // What the address asks for goes to the program as command line options: ?view=pictures becomes --view pictures.
+  // Only the options that set up the view are passed on.
+  var options = [];
+  new URLSearchParams(location.search).forEach(function (value, key) {
+    if (['view', 'select', 'bars', 'zoom'].indexOf(key) >= 0) options.push('--' + key, value);
+  });
+  var note = document.getElementById('note');
+  var webgl2 = !!document.createElement('canvas').getContext('webgl2');
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    arguments: options,
+    setStatus: function (text) {
+      if (!webgl2) return;
+      note.textContent = text || '';
+      note.style.display = text ? '' : 'none';
+    },
+    onAbort: function () {
+      if (!webgl2) return;
+      note.style.display = '';
+      note.textContent = 'The program stopped. Reload the page to start again.';
+    }
+  };
+  if (!webgl2) note.textContent = 'This page needs WebGL 2, which this browser does not have or has switched off.';
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

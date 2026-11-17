@@ -74,7 +74,7 @@ void destroy_texture(Texture& t) {
     t = Texture{};
 }
 
-std::string open_file_dialog(const wchar_t* title, const wchar_t* filter) {
+void open_file(const wchar_t* title, const wchar_t* filter, std::function<void(const std::string& path)> then) {
     wchar_t path[2048] = L"";
     OPENFILENAMEW ofn{};
     ofn.lStructSize = sizeof ofn;
@@ -84,7 +84,7 @@ std::string open_file_dialog(const wchar_t* title, const wchar_t* filter) {
     ofn.lpstrFile = path;
     ofn.nMaxFile = 2048;
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_HIDEREADONLY;
-    return GetOpenFileNameW(&ofn) ? narrow(path) : std::string();
+    if (GetOpenFileNameW(&ofn)) then(narrow(path));
 }
 
 std::string save_file_dialog(const wchar_t* title, const wchar_t* filter, const wchar_t* default_ext, const wchar_t* default_name) {
@@ -105,6 +105,8 @@ std::string save_file_dialog(const wchar_t* title, const wchar_t* filter, const 
 FILE* fopen_utf8(const std::string& path, const char* mode) {
     return _wfopen(widen(path).c_str(), widen(mode).c_str());
 }
+
+std::wstring to_wide(const std::string& utf8) { return widen(utf8); }
 
 }  // namespace platform
 
