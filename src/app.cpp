@@ -147,14 +147,21 @@ struct ImageView {
     int current = -1;    // which reference image is shown
     int assigned = 0;    // the snapshot picked from the list, counted from 1; 0 = none
     int against = 0;     // the source picture: 0 = the prepared image, otherwise the image through the assigned snapshot
-    int mode = 0;       // 0: both pictures, side by side or one above the other. 1: one picture that flips between them
+    int mode = 0;       // 0: both pictures, side by side or one above the other. 1: one picture that flips between them.
+                        // 2: one picture split by a bar, the source to its left and the current settings to its right
     bool flipped = false;  // flipping: the first picture is the one showing
+    float sweep = 0.5f;    // the bar: 0 at the left edge of the picture, 1 at the right
+    bool sweep_auto = false;  // the bar goes from side to side by itself
+    float sweep_dir = 1.0f;   // which way it is going: 1 to the right, -1 to the left
+    bool grey = false;        // every picture as its luma alone
     platform::Texture original, snapshot, mapped;
     bool dirty_original = false, dirty_snapshot = false, dirty_mapped = false;
     bool fit = true;     // the whole picture, whatever the size of the window
     float scale = 1.0f;  // screen pixels per pixel of the image
     float cx = 0, cy = 0;  // the point of the image at the centre of each picture
 } g_imgview;
+const char* const COMPARE_NAMES[3] = {"side", "flip", "sweep"};  // ImageView::mode, as a project file names it
+const float SWEEP_SECONDS = 4.0f;  // the bar, going by itself, takes this long to cross the picture
 
 std::string g_project_path;  // the project file last opened or saved
 
@@ -885,11 +892,15 @@ void remove_source(int i) {
         select_source(std::min(i, (int)g_sources.size() - 1));
 }
 
-// The picture with each of its colours replaced by what a palette gives for it.
-platform::Texture map_source(const SourceImage& s, const vce::Palette& pal) {
+// The picture with each of its colours replaced by what a palette gives for it. grey: by what the palette gives for
+// the colour's luma code with no chroma, so the picture is its luma alone.
+platform::Texture map_source(const SourceImage& s, const vce::Palette& pal, bool grey) {
     static std::vector<uint32_t> px;
     uint32_t lut[512];
-    for (int i = 0; i < 512; i++) lut[i] = IM_COL32(pal.e[i].rgb[0], pal.e[i].rgb[1], pal.e[i].rgb[2], 255);
+    for (int i = 0; i < 512; i++) {
+        const uint8_t* c = grey ? pal.luma[pal.e[i].y_code].rgb : pal.e[i].rgb;
+        lut[i] = IM_COL32(c[0], c[1], c[2], 255);
+    }
     px.resize(s.index.size());
     for (size_t i = 0; i < px.size(); i++) px[i] = s.index[i] == NO_COLOUR ? 0 : lut[s.index[i]];
     return platform::create_texture((const uint8_t*)px.data(), s.w, s.h);
@@ -901,17 +912,24 @@ void update_view_textures() {
     const SourceImage& s = g_sources[v.current];
     if (v.dirty_original) {
         platform::destroy_texture(v.original);
-        v.original = platform::create_texture(s.rgba.data(), s.w, s.h);
+        if (!v.grey)
+            v.original = platform::create_texture(s.rgba.data(), s.w, s.h);
+        else {  // plain RGB has no luma code: its luma is worked out from the three channels
+            static std::vector<uint8_t> px;
+            px = s.rgba;
+            for (size_t i = 0; i + 3 < px.size(); i += 4) px[i] = px[i + 1] = px[i + 2] = (uint8_t)std::lround(0.299 * px[i] + 0.587 * px[i + 1] + 0.114 * px[i + 2]);
+            v.original = platform::create_texture(px.data(), s.w, s.h);
+        }
         v.dirty_original = false;
     }
     if (v.dirty_mapped) {
         platform::destroy_texture(v.mapped);
-        v.mapped = map_source(s, g_pal);
+        v.mapped = map_source(s, g_pal, v.grey);
         v.dirty_mapped = false;
     }
     if (v.dirty_snapshot) {
         platform::destroy_texture(v.snapshot);
-        if (v.against > 0 && v.against <= (int)g_snapshots.size()) v.snapshot = map_source(s, g_snapshots[v.against - 1].pal);
+        if (v.against > 0 && v.against <= (int)g_snapshots.size()) v.snapshot = map_source(s, g_snapshots[v.against - 1].pal, v.grey);
         v.dirty_snapshot = false;
     }
 }
@@ -956,7 +974,12 @@ std::string project_text(const std::string& folder) {
     for (const Snapshot& s : g_snapshots) out += "[snapshot]\nname=" + s.name + "\n" + vce::to_text(s.params);
     for (const SourceImage& s : g_sources) out += "[image]\n" + file_lines("", s.path, folder);
     out += "[view]\nimage=" + std::to_string(g_imgview.current) + "\nsnapshot=" + std::to_string(g_imgview.assigned) +
-           "\nsnapshot_as_source=" + (g_imgview.against > 0 ? "1" : "0") + "\nflip=" + std::to_string(g_imgview.mode) + "\n";
+           "\nsnapshot_as_source=" + (g_imgview.against > 0 ? "1" : "0") + "\n";
+    // "flip" is what versions before the sweep bar read; "compare" names any of the three.
+    char sweep_at[32];
+    snprintf(sweep_at, sizeof sweep_at, "%.4f", g_imgview.sweep);
+    out += std::string("flip=") + (g_imgview.mode == 1 ? "1" : "0") + "\ncompare=" + COMPARE_NAMES[g_imgview.mode] + "\nsweep_at=" + sweep_at +
+           "\ngreyscale=" + (g_imgview.grey ? "1" : "0") + "\n";
     if (g_have_ref) out += "[reference_palette]\n" + file_lines("", g_ref_path, folder);
     if (!g_image.colours.empty()) out += "[plot]\n" + file_lines("", g_image.path, folder);
     return out;
@@ -1046,6 +1069,13 @@ bool load_project(const std::string& path) {
             snapshot = std::atoi(value_of(body, "snapshot").c_str());
             as_source = value_of(body, "snapshot_as_source") == "1";
             g_imgview.mode = value_of(body, "flip") == "1" ? 1 : 0;
+            const std::string compare = value_of(body, "compare"), at = value_of(body, "sweep_at");
+            for (int k = 0; k < 3; k++)
+                if (compare == COMPARE_NAMES[k]) g_imgview.mode = k;
+            g_imgview.sweep = at.empty() ? 0.5f : std::clamp((float)std::atof(at.c_str()), 0.0f, 1.0f);
+            g_imgview.sweep_auto = false;
+            g_imgview.grey = value_of(body, "greyscale") == "1";
+            g_imgview.dirty_original = g_imgview.dirty_snapshot = g_imgview.dirty_mapped = true;
         } else if (name == "reference_palette") {
             if (!load_reference(file)) could_not(file);
         } else if (name == "plot") {
@@ -1990,13 +2020,21 @@ void ui_refimage() {
                           "Ticked: the image through the assigned snapshot.");
     flow(S(105));
     ImGui::SetNextItemWidth(S(105));
-    ImGui::Combo("##mode", &v.mode, "Side by side\0Flip\0");
+    ImGui::Combo("##mode", &v.mode, "Side by side\0Flip\0Sweep\0");
     ImGui::SetItemTooltip("Side by side: both pictures at once.\n"
-                          "Flip: one picture, larger, that changes between the two in place.");
+                          "Flip: one picture, larger, that changes between the two in place.\n"
+                          "Sweep: one picture, larger, split by a bar that goes across it. The source is to the left of the bar,\n"
+                          "the current settings to the right.");
     if (v.mode == 1) {
         flow(button_width("Flip"));
         if (ImGui::Button("Flip")) v.flipped = !v.flipped;
         ImGui::SetItemTooltip("Changes which of the two is showing. The space bar does the same, and so does\na click with the right button on the picture.");
+    }
+    if (v.mode == 2) {
+        flow(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Auto").x);
+        ImGui::Checkbox("Auto", &v.sweep_auto);
+        ImGui::SetItemTooltip("The bar sweeps across the picture by itself, left to right and back. The space bar starts and stops it.\n"
+                              "By hand: drag the bar, or hold the right button on the picture and the bar follows the pointer.");
     }
     flow(S(105) + button_width("Fit") + button_width("1:1") + ImGui::GetStyle().ItemSpacing.x * 2);  // the three stay together
     ImGui::SetNextItemWidth(S(105));
@@ -2010,6 +2048,11 @@ void ui_refimage() {
     ImGui::SameLine();
     if (ImGui::Button("1:1")) v.scale = 1.0f, v.fit = false;
     ImGui::SetItemTooltip("One screen pixel for each pixel of the image.");
+    flow(ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("Greyscale").x);
+    if (ImGui::Checkbox("Greyscale##pictures", &v.grey)) v.dirty_original = v.dirty_snapshot = v.dirty_mapped = true;
+    ImGui::SetItemTooltip("Shows the pictures as luma alone, with the chroma taken away.\n"
+                          "The original: the luma of its RGB colours, 0.299 R + 0.587 G + 0.114 B.\n"
+                          "A snapshot and the current settings: the grey of each colour's luma code, as a final colour.");
 
     update_view_textures();
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -2022,9 +2065,10 @@ void ui_refimage() {
     ImGuiIO& io = ImGui::GetIO();
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
-    // Two pictures of the same size, side by side or one above the other, whichever shows them larger. Flipping,
-    // there is one, with the whole area to itself.
-    const int count = v.mode == 1 ? 1 : 2;
+    // Two pictures of the same size, side by side or one above the other, whichever shows them larger. Flipping or
+    // sweeping, there is one, with the whole area to itself.
+    const int count = v.mode == 0 ? 2 : 1;
+    const bool sweeping = v.mode == 2;
     const float gap = S(8), head = ImGui::GetTextLineHeight() + S(6);  // between the two pictures; the heading over each
     const float w = (float)s.w, h = (float)s.h;
     const float fit_side = std::min((avail.x - gap) * 0.5f / w, (avail.y - head) / h);
@@ -2044,14 +2088,43 @@ void ui_refimage() {
     int over = -1;  // the picture the pointer is on
     for (int k = 0; k < count && hovered; k++)
         if (io.MousePos.x >= a[k].x && io.MousePos.x < b[k].x && io.MousePos.y >= a[k].y && io.MousePos.y < b[k].y) over = k;
-    if (count == 1 && ((hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) || (!io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space, false))))
-        v.flipped = !v.flipped;
+    const bool space = !io.WantTextInput && ImGui::IsKeyPressed(ImGuiKey_Space, false);
+    if (v.mode == 1 && ((hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Right)) || space)) v.flipped = !v.flipped;
+    if (sweeping && space) v.sweep_auto = !v.sweep_auto;
 
     // Zoom about the pointer, and drag to move. Both pictures always show the same part of the image.
-    static bool moved = false;
+    static bool moved = false;   // this press of the left button has moved something, so it is not a click on a colour
+    static bool on_bar = false;  // this press took hold of the bar
     if (pressed) moved = false;
     if (v.fit) v.scale = fit;
     v.scale = std::clamp(v.scale, 0.02f, 64.0f);
+
+    // Sweeping: the bar goes across the part of the image that is on screen. By hand it goes where the pointer is,
+    // held by the left button or, anywhere on the picture, with the right button down. Otherwise it may go by itself.
+    auto bar_range = [&](float& lo, float& hi) {
+        const float left = a[0].x + half.x - v.cx * v.scale;
+        lo = std::max(a[0].x, left);
+        hi = std::max(std::min(b[0].x, left + w * v.scale), lo + 1.0f);
+    };
+    bool near_bar = false, placing = false;
+    if (sweeping) {
+        float lo, hi;
+        bar_range(lo, hi);
+        near_bar = over >= 0 && std::fabs(io.MousePos.x - (lo + v.sweep * (hi - lo))) <= S(7);
+        if (pressed) on_bar = near_bar;
+        placing = (active && on_bar) || (over >= 0 && ImGui::IsMouseDown(ImGuiMouseButton_Right));
+        if (placing) {
+            v.sweep = std::clamp((io.MousePos.x - lo) / (hi - lo), 0.0f, 1.0f);
+            v.sweep_auto = false;
+            moved = true;
+        } else if (v.sweep_auto) {
+            v.sweep += v.sweep_dir * io.DeltaTime / SWEEP_SECONDS;
+            if (v.sweep >= 1.0f) v.sweep = 1.0f, v.sweep_dir = -1.0f;
+            if (v.sweep <= 0.0f) v.sweep = 0.0f, v.sweep_dir = 1.0f;
+        }
+    } else
+        on_bar = false;
+
     if (over >= 0 && io.MouseWheel != 0.0f) {
         const ImVec2 off(io.MousePos.x - (a[over].x + half.x), io.MousePos.y - (a[over].y + half.y));
         const float qx = v.cx + off.x / v.scale, qy = v.cy + off.y / v.scale;  // the image point under the pointer
@@ -2065,7 +2138,7 @@ void ui_refimage() {
         v.scale = z;
         v.fit = false;
     }
-    if (active && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
+    if (active && !on_bar && ImGui::IsMouseDragging(ImGuiMouseButton_Left)) {
         moved = true;
         v.cx -= io.MouseDelta.x / v.scale, v.cy -= io.MouseDelta.y / v.scale;
     }
@@ -2075,33 +2148,59 @@ void ui_refimage() {
     v.cy = h <= 2 * hy ? h * 0.5f : std::clamp(v.cy, hy, h - hy);
     const bool can_move = w > 2 * hx || h > 2 * hy;
     if (over >= 0 && can_move) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeAll);
+    if (near_bar || (sweeping && active && on_bar)) ImGui::SetMouseCursor(ImGuiMouseCursor_ResizeEW);
 
     const ImGuiPlatformIO& pio = ImGui::GetPlatformIO();
     const bool nearest = v.scale >= 1.0f && pio.DrawCallback_SetSamplerNearest && pio.DrawCallback_SetSamplerLinear;
     const std::string first = v.against > 0 ? "Snapshot: " + g_snapshots[v.against - 1].name : "Original, as 9-bit RGB";
     const platform::Texture* tex[2] = {v.against > 0 ? &v.snapshot : &v.original, &v.mapped};
     const char* heading[2] = {first.c_str(), "Current settings"};
-    if (count == 1 && !v.flipped) tex[0] = tex[1], heading[0] = heading[1];  // flipping: the one area shows either
-    char about[96] = "space bar or right click flips";  // beside the first heading, where there is room for it
+    if (v.mode == 1 && !v.flipped) tex[0] = tex[1], heading[0] = heading[1];  // flipping: the one area shows either
+    // Beside the first heading, where there is room for it: a note, or when sweeping the heading of the right-hand part.
+    char about[96] = "space bar or right click flips";
     if (count == 2) snprintf(about, sizeof about, "%d x %d, %d colours", s.w, s.h, s.used);
+    if (sweeping) snprintf(about, sizeof about, "%s", heading[1]);
+    const ImU32 heading_colour = IM_COL32(205, 210, 205, 255), amber = IM_COL32(255, 220, 120, 255), black = IM_COL32(0, 0, 0, 255);
     ImVec2 origin[2];  // where the image's top left corner is on screen
     for (int k = 0; k < count; k++) {
-        dl->AddText(ImVec2(a[k].x + S(2), a[k].y - head + S(2)), IM_COL32(205, 210, 205, 255), heading[k]);
+        dl->AddText(ImVec2(a[k].x + S(2), a[k].y - head + S(2)), heading_colour, heading[k]);
         const float about_w = ImGui::CalcTextSize(about).x;
         if (k == 0 && ImGui::CalcTextSize(heading[k]).x + about_w + S(20) < b[k].x - a[k].x)
-            dl->AddText(ImVec2(b[k].x - about_w - S(2), a[k].y - head + S(2)), IM_COL32(125, 130, 125, 255), about);
+            dl->AddText(ImVec2(b[k].x - about_w - S(2), a[k].y - head + S(2)), sweeping ? heading_colour : IM_COL32(125, 130, 125, 255), about);
         dl->AddRectFilled(a[k], b[k], IM_COL32(7, 9, 11, 255), S(4));
         origin[k] = ImVec2(std::floor(a[k].x + half.x - v.cx * v.scale + 0.5f), std::floor(a[k].y + half.y - v.cy * v.scale + 0.5f));
-        if (!*tex[k]) continue;
+        const ImVec2 corner(origin[k].x + w * v.scale, origin[k].y + h * v.scale);
+        auto picture = [&](const platform::Texture& t, ImVec2 from, ImVec2 to) {  // the part of it between two corners
+            if (!t) return;
+            dl->PushClipRect(from, to, true);
+            if (nearest) dl->AddCallback(pio.DrawCallback_SetSamplerNearest, nullptr);  // enlarged pixels stay sharp
+            dl->AddImage((ImTextureID)(intptr_t)t.srv, origin[k], corner);
+            if (nearest) dl->AddCallback(pio.DrawCallback_SetSamplerLinear, nullptr);
+            dl->PopClipRect();
+        };
+        if (!sweeping) {
+            picture(*tex[k], a[k], b[k]);
+            continue;
+        }
+        float lo, hi;
+        bar_range(lo, hi);
+        const float x = std::floor(lo + v.sweep * (hi - lo) + 0.5f);  // the bar: the source up to here, the result from here
+        picture(*tex[0], a[k], ImVec2(x, b[k].y));
+        picture(*tex[1], ImVec2(x, a[k].y), b[k]);
+        const float grip = S(6);
         dl->PushClipRect(a[k], b[k], true);
-        if (nearest) dl->AddCallback(pio.DrawCallback_SetSamplerNearest, nullptr);  // enlarged pixels stay sharp
-        dl->AddImage((ImTextureID)(intptr_t)tex[k]->srv, origin[k], ImVec2(origin[k].x + w * v.scale, origin[k].y + h * v.scale));
-        if (nearest) dl->AddCallback(pio.DrawCallback_SetSamplerLinear, nullptr);
+        dl->AddLine(ImVec2(x, a[k].y), ImVec2(x, b[k].y), black, 3.0f);
+        dl->AddLine(ImVec2(x, a[k].y), ImVec2(x, b[k].y), amber, 1.0f);
+        for (int end = 0; end < 2; end++) {  // a mark at each end of the bar, to take hold of
+            const float y = end ? b[k].y : a[k].y, tip = end ? y - grip : y + grip;
+            dl->AddTriangleFilled(ImVec2(x - grip, y), ImVec2(x + grip, y), ImVec2(x, tip), amber);
+            dl->AddTriangle(ImVec2(x - grip, y), ImVec2(x + grip, y), ImVec2(x, tip), black, 1.0f);
+        }
         dl->PopClipRect();
     }
 
     // The pixel under the pointer: marked on both pictures, described, and picked by a click.
-    if (over < 0 || (active && moved)) return;
+    if (over < 0 || (active && moved) || placing) return;
     const float fx = (io.MousePos.x - origin[over].x) / v.scale, fy = (io.MousePos.y - origin[over].y) / v.scale;
     if (fx < 0 || fy < 0 || fx >= w || fy >= h) return;
     const int px = (int)fx, py = (int)fy;

@@ -101,10 +101,17 @@ from a path, and a saved file arrives as a download. There is no command line;
   sets of settings can be compared. "Restore" puts the settings back to the
   snapshot's, after asking.
 - The two pictures show side by side (or one above the other), or as one
-  larger picture that flips between them: "Flip", the space bar or a right
-  click. The mouse wheel zooms, about the pointer; zoomed in, drag with the
-  left button to move around. Both pictures always show the same part. The
-  pointer shows the colour under it three ways, and a click selects it.
+  larger picture that flips between them ("Flip", the space bar or a right
+  click), or as one larger picture split by a bar ("Sweep"): the source to the
+  left of the bar, the current settings to the right. Drag the bar, or hold
+  the right button on the picture and it follows the pointer; "Auto", or the
+  space bar, makes it sweep from side to side by itself.
+- The mouse wheel zooms, about the pointer; zoomed in, drag with the left
+  button to move around. Both pictures always show the same part. The pointer
+  shows the colour under it three ways, and a click selects it.
+- "Greyscale" beside the zoom shows the pictures as luma alone: the original
+  as the luma of its RGB colours, a snapshot and the current settings as the
+  grey of each colour's luma code.
 - "Luma mapping" sets which signal levels come out as full white and as
   black.
 - "Settings..." can show the post adjustment (contrast, brightness, colour,
